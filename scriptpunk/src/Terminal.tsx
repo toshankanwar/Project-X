@@ -77,8 +77,8 @@ export default forwardRef<API, { onData: (d: string) => void }>(function Termina
     // Wire data with proper disposal handling
     const disp = term.onData(onData);
 
-    // Fixed resize handling with proper typing
-    let resizeTimer: NodeJS.Timeout | null = null;
+    // Fixed resize handling with proper browser typing
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
     const onResize = () => {
       if (resizeTimer) clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
