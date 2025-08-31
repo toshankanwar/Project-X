@@ -52,6 +52,9 @@ Visit `http://localhost:5173` and type `help` to get started!
 ### Weather and Crypto Commands
 ![API Integration Demo](screenshots/Screenshot2.png)
 
+### Joke Commands
+![Joke Demo](screenshots/Screenshot3.png)
+
 ## 🎮 Popular Commands
 Get started
 help # Show all available commands
