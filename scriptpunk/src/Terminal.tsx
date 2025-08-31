@@ -1,4 +1,4 @@
-import { useEffect, useRef, forwardRef } from "react";
+import { useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import { Terminal } from "xterm";
 import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
@@ -7,7 +7,7 @@ type API = {
   write: (d: string | Uint8Array) => void;
   focus: () => void;
   fit: () => void;
-  onData: (fn: (d: string) => void) => void;
+  onData: (fn: (d: string) => void) => { dispose: () => void };
   clear: () => void;
 };
 
@@ -35,40 +35,70 @@ export default forwardRef<API, { onData: (d: string) => void }>(function Termina
         background: "#0d0208",
         foreground: "#00ff41",
         cursor: "#00ff41",
+        cursorAccent: "#00ff41", // Add cursor accent
       },
       fontFamily:
         "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-      fontSize: 14,
+      fontSize: 18,              // Increased from 14 to 18
+      lineHeight: 1.2,           // Added line height for better spacing
+      letterSpacing: 0.5,        // Added letter spacing for better readability
+      fontWeight: 'normal',      // Ensure normal weight (not too thin)
+      // Add these for better cursor behavior
+      cursorStyle: 'block',
+      cursorWidth: 2,            // Increased cursor width from 1 to 2
+      // Prevent autowrap issues that can cause cursor problems
+      cols: 80,
+      rows: 24,
     });
+    
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(el);
     termRef.current = term;
     fitRef.current = fit;
 
-    // Fit only after layout is ready (non-zero size); use requestAnimationFrame
+    // Better fit timing - wait for layout AND proper initialization
     const safeFit = () => {
       try {
         const rect = el.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) fit.fit();
-      } catch {}
+        if (rect.width > 0 && rect.height > 0 && term._core?.buffer) {
+          fit.fit();
+          // Force cursor visibility after fit
+          term.focus();
+        }
+      } catch (e) {
+        console.warn('Fit failed:', e);
+      }
     };
+
+    // Multiple timing strategies for fit
+    setTimeout(safeFit, 0);          // Immediate
+    setTimeout(safeFit, 100);        // After render
     const raf = requestAnimationFrame(safeFit);
 
-    // Wire data
+    // Wire data with proper disposal handling
     const disp = term.onData(onData);
 
     const onResize = () => {
-      // Refit only when visible and sized
-      safeFit();
+      // Debounce resize to prevent fit spam
+      clearTimeout(onResize._timeout);
+      onResize._timeout = setTimeout(safeFit, 100);
     };
+    onResize._timeout = null;
+    
     window.addEventListener("resize", onResize);
 
+    // Focus the terminal initially to ensure cursor is visible
+    setTimeout(() => {
+      term.focus();
+    }, 0);
+
     return () => {
+      clearTimeout(onResize._timeout);
       window.removeEventListener("resize", onResize);
       cancelAnimationFrame(raf);
       try {
-        disp.dispose();
+        disp?.dispose();
       } catch {}
       try {
         termRef.current?.dispose();
@@ -79,25 +109,45 @@ export default forwardRef<API, { onData: (d: string) => void }>(function Termina
     };
   }, [onData]);
 
-  // Expose API
-  // @ts-ignore
-  if (ref) {
-    // @ts-ignore
-    ref.current = {
-      write: (d: string | Uint8Array) => termRef.current?.write(d),
-      focus: () => termRef.current?.focus(),
-      fit: () => {
-        try {
-          const el = containerRef.current;
-          if (!el) return;
-          const rect = el.getBoundingClientRect();
-          if (rect.width > 0 && rect.height > 0) fitRef.current?.fit();
-        } catch {}
-      },
-      onData: (fn: (s: string) => void) => termRef.current?.onData(fn),
-      clear: () => termRef.current?.clear(),
-    };
-  }
+  // Use useImperativeHandle for better ref handling
+  useImperativeHandle(ref, () => ({
+    write: (d: string | Uint8Array) => {
+      termRef.current?.write(d);
+      // Force cursor refresh after write
+      setTimeout(() => termRef.current?.focus(), 0);
+    },
+    focus: () => {
+      termRef.current?.focus();
+      // Also refresh cursor position
+      termRef.current?.refresh(termRef.current.buffer.active.cursorY, termRef.current.buffer.active.cursorY);
+    },
+    fit: () => {
+      try {
+        const el = containerRef.current;
+        if (!el || !termRef.current) return;
+        
+        const rect = el.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          fitRef.current?.fit();
+          // Ensure cursor stays visible after fit
+          setTimeout(() => {
+            termRef.current?.focus();
+            termRef.current?.refresh(termRef.current.buffer.active.cursorY, termRef.current.buffer.active.cursorY);
+          }, 0);
+        }
+      } catch (e) {
+        console.warn('Manual fit failed:', e);
+      }
+    },
+    onData: (fn: (s: string) => void) => {
+      return termRef.current?.onData(fn) || { dispose: () => {} };
+    },
+    clear: () => {
+      termRef.current?.clear();
+      // Ensure cursor is visible after clear
+      setTimeout(() => termRef.current?.focus(), 0);
+    },
+  }), []);
 
   // Important: parent must give this element height
   return <div ref={containerRef} className="h-full w-full" />;

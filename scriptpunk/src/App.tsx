@@ -3,276 +3,430 @@ import TerminalView from "./Terminal";
 import { handleClientCommand } from "./commands";
 import { login, logout, whoami } from "./auth";
 
-// User session type [1]
-type User = { user: string; roles: string[] } | null; [1]
+// User session type
+type User = { user: string; roles: string[] } | null;
 
-// Prompt pieces with ANSI colors (bright cyan for user@host, bright green for cwd) and resets [2]
-function makePrompt(user: User, cwd = "~"): string { [2]
-  const name = user ? "hackroot" : "guest"; [1]
-  const host = "ScriptPunk"; [1]
-  const sym = user ? "#" : "$"; [1]
-  return `\x1b[1;96m${name}@${host}\x1b[0m:\x1b[1;92m${cwd}\x1b[0m${sym} `; [2]
+// Prompt pieces with ANSI colors (bright cyan for user@host, bright green for cwd) and resets
+function makePrompt(user: User, cwd = "~"): string {
+  const name = user ? "hackroot" : "guest";
+  const host = "ScriptPunk";
+  const sym = user ? "#" : "$";
+  return `\x1b[1;96m${name}@${host}\x1b[0m:\x1b[1;92m${cwd}\x1b[0m${sym} `;
 }
 
+// Loading animation frames
+const loadingFrames = [
+  "Loading ScriptPunk Terminal    [    ]",
+  "Loading ScriptPunk Terminal    [■   ]", 
+  "Loading ScriptPunk Terminal    [■■  ]",
+  "Loading ScriptPunk Terminal    [■■■ ]",
+  "Loading ScriptPunk Terminal    [■■■■]",
+  "Loading ScriptPunk Terminal    [✓✓✓✓]"
+];
+
+// Startup animation sequences (faster delays)
+const startupSequence = [
+  { text: "┌─────────────────────────────────────────────────────────────┐", delay: 50 },
+  { text: "│                 ScriptPunk Terminal v2.0.0                   │", delay: 50 },
+  { text: "│           Advanced Security Professional Environment         │", delay: 50 },
+  { text: "└─────────────────────────────────────────────────────────────┘", delay: 100 },
+  { text: "", delay: 50 },
+  { text: "[SYSTEM] Initializing ScriptPunk Terminal...", delay: 150 },
+  { text: "[BOOT]   Loading core modules...              [████████████] 100%", delay: 200 },
+  { text: "[NET]    Establishing network connections...   [████████████] 100%", delay: 200 },
+  { text: "[API]    Connecting to external APIs...       [████████████] 100%", delay: 200 },
+  { text: "[SEC]    Loading security protocols...        [████████████] 100%", delay: 200 },
+  { text: "[CMD]    Registering 50+ commands...          [████████████] 100%", delay: 200 },
+  { text: "[TERM]   Initializing terminal interface...   [████████████] 100%", delay: 200 },
+  { text: "[AUTH]   Setting up authentication system...  [████████████] 100%", delay: 200 },
+  { text: "[WS]     WebSocket server ready...            [████████████] 100%", delay: 150 },
+  { text: "", delay: 100 },
+  { text: "✓ System initialization complete!", delay: 100 },
+  { text: "✓ All modules loaded successfully", delay: 100 },
+  { text: "✓ APIs connected and ready", delay: 100 },
+  { text: "✓ Security protocols active", delay: 100 },
+  { text: "", delay: 150 },
+  { text: "🔥 Welcome to ScriptPunk Terminal! 🔥", delay: 100 },
+  { text: "   Hack the Planet • Script your Way • Punk the System", delay: 100 },
+  { text: "", delay: 100 },
+  { text: "Type 'help' for available commands or 'login' to authenticate.", delay: 50 },
+  { text: "Ready for input...", delay: 100 }
+];
+
 export default function App() {
-  const termRef = useRef<any>(null); [1]
+  const termRef = useRef<any>(null);
 
-  // State [1]
-  const [user, setUser] = useState<User>(null); [1]
-  const [ws, setWs] = useState<WebSocket | null>(null); [1]
-  const [connected, setConnected] = useState(false); [1]
+  // State
+  const [user, setUser] = useState<User>(null);
+  const [ws, setWs] = useState<WebSocket | null>(null);
+  const [connected, setConnected] = useState(false);
+  const [isPageLoading, setIsPageLoading] = useState(true);
+  const [isStartupComplete, setIsStartupComplete] = useState(false);
 
-  // Line editor state [1]
-  const promptRef = useRef<string>(""); [1]
-  const bufferRef = useRef<string>(""); [1]
-  const readingLineRef = useRef<boolean>(false); // true when readLine/password is active [1]
-  const readDisposableRef = useRef<{ dispose: () => void } | null>(null); [1]
+  // Line editor state
+  const promptRef = useRef<string>("");
+  const bufferRef = useRef<string>("");
+  const readingLineRef = useRef<boolean>(false);
+  const readDisposableRef = useRef<{ dispose: () => void } | null>(null);
 
-  // Utilities to write to terminal [1]
-  function write(data: string | Uint8Array) { [1]
-    termRef.current?.write(data); [1]
+  // Utilities to write to terminal
+  function write(data: string | Uint8Array) {
+    termRef.current?.write(data);
   }
-  function writeLine(line = "") { [1]
-    write(line + "\r\n"); [2]
-  }
-
-  // Redraw the current input line: CR + erase to end + prompt + buffer [2]
-  function redrawLine() { [2]
-    const p = promptRef.current; [1]
-    const b = bufferRef.current; [1]
-    write("\r\x1b[K"); // carriage return + clear to end of line [2]
-    write(p + b); [2]
+  function writeLine(line = "") {
+    write(line + "\r\n");
   }
 
-  // Prepare a fresh prompt and clear buffer [1]
-  function newPrompt() { [1]
-    promptRef.current = makePrompt(user); [2]
-    bufferRef.current = ""; [1]
-    redrawLine(); [2]
+  // Page loading animation
+  async function showLoadingAnimation(): Promise<void> {
+    return new Promise((resolve) => {
+      let frameIndex = 0;
+      let cycles = 0;
+      const maxCycles = 2;
+      
+      const interval = setInterval(() => {
+        write('\r\x1b[K' + loadingFrames[frameIndex]);
+        
+        frameIndex++;
+        
+        if (frameIndex >= loadingFrames.length) {
+          frameIndex = 0;
+          cycles++;
+          
+          if (cycles >= maxCycles) {
+            clearInterval(interval);
+            write('\r\x1b[K');
+            writeLine("Loading complete! Starting terminal...");
+            writeLine("");
+            setTimeout(resolve, 300);
+          }
+        }
+      }, 200);
+    });
   }
 
-  // Init: welcome text, focus, and delayed fit (no backend calls) [1][2]
+  // Animated typing effect
+  async function typeWriter(text: string, speed: number = 50): Promise<void> {
+    return new Promise((resolve) => {
+      let i = 0;
+      const timer = setInterval(() => {
+        if (i < text.length) {
+          write(text.charAt(i));
+          i++;
+        } else {
+          clearInterval(timer);
+          write("\r\n");
+          resolve();
+        }
+      }, speed);
+    });
+  }
+
+  // Startup animation with typing effect (faster)
+  async function playStartupAnimation(): Promise<void> {
+    for (const step of startupSequence) {
+      if (step.text === "") {
+        writeLine();
+      } else {
+        await typeWriter(step.text, 15); // Much faster typing
+      }
+      await new Promise(resolve => setTimeout(resolve, step.delay));
+    }
+    setIsStartupComplete(true);
+  }
+
+  // Show help suggestions after startup
+  async function showHelpSuggestions(): Promise<void> {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    writeLine("");
+    writeLine("💡 Popular Commands:");
+    writeLine("   • help     - See all available commands");
+    writeLine("   • about    - Learn about Toshan Kanwar");
+    writeLine("   • weather  - Get weather information");
+    writeLine("   • crypto   - Check cryptocurrency prices");
+    writeLine("   • joke     - Get programming jokes");
+    writeLine("   • dhoom    - Bollywood hacking scene");
+    writeLine("");
+    writeLine("Start typing any command below:");
+  }
+
+  // Redraw the current input line: CR + erase to end + prompt + buffer
+  function redrawLine() {
+    const p = promptRef.current;
+    const b = bufferRef.current;
+    write("\r\x1b[K");
+    write(p + b);
+  }
+
+  // Prepare a fresh prompt and clear buffer
+  function newPrompt() {
+    promptRef.current = makePrompt(user);
+    bufferRef.current = "";
+    redrawLine();
+    setTimeout(() => {
+      termRef.current?.focus?.();
+    }, 10);
+  }
+
+  // Init: page loading, startup animation, help suggestions
   useEffect(() => {
-    writeLine("Welcome to ScriptPunk Terminal"); [1]
-    writeLine("Type 'help' for general commands. Type 'login' to authenticate."); [1]
-    promptRef.current = makePrompt(user); [2]
-    bufferRef.current = ""; [1]
-    redrawLine(); [2]
+    const initializeTerminal = async () => {
+      // Clear screen first
+      write("\x1b[2J\x1b[H");
+      
+      // Show page loading animation
+      await showLoadingAnimation();
+      setIsPageLoading(false);
+      
+      // Play startup animation
+      await playStartupAnimation();
+      
+      // Show help suggestions
+      await showHelpSuggestions();
+      
+      // Set up initial prompt
+      promptRef.current = makePrompt(user);
+      bufferRef.current = "";
+      redrawLine();
 
-    termRef.current?.focus?.(); // caret visible [1]
-    const t = setTimeout(() => termRef.current?.fit?.(), 0); // fit after layout [2]
-    return () => clearTimeout(t); [2]
+      termRef.current?.focus?.();
+      const t = setTimeout(() => {
+        termRef.current?.fit?.();
+        termRef.current?.focus?.();
+      }, 100);
+      
+      return () => clearTimeout(t);
+    };
+
+    initializeTerminal();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Attach PTY only after explicit login [1]
-  function attachPTY() { [1]
-    const socket = new WebSocket(location.origin.replace(/^http/, "ws") + "/ws/term"); [2]
-    socket.binaryType = "arraybuffer"; [2]
+  // Force prompt refresh when user state changes
+  useEffect(() => {
+    if (!readingLineRef.current && isStartupComplete && !isPageLoading) {
+      setTimeout(() => {
+        newPrompt();
+      }, 50);
+    }
+  }, [user, connected, isStartupComplete, isPageLoading]);
+
+  // Attach PTY only after explicit login
+  function attachPTY() {
+    const socket = new WebSocket(location.origin.replace(/^http/, "ws") + "/ws/term");
+    socket.binaryType = "arraybuffer";
 
     socket.onopen = () => {
-      setConnected(true); [1]
-      writeLine(""); [2]
-      writeLine("[PTY connected]"); [1]
-      newPrompt(); [2]
+      setConnected(true);
+      writeLine("");
+      writeLine("[PTY connected]");
     };
     socket.onmessage = (ev) => {
       if (typeof ev.data === "string") {
-        write(ev.data); [1]
+        write(ev.data);
       } else {
-        const dec = new TextDecoder(); [1]
-        write(dec.decode(new Uint8Array(ev.data as ArrayBuffer))); [1]
+        const dec = new TextDecoder();
+        write(dec.decode(new Uint8Array(ev.data as ArrayBuffer)));
       }
-      if (!readingLineRef.current) newPrompt(); // ensure prompt after server output [2]
+      if (!readingLineRef.current) {
+        setTimeout(() => {
+          newPrompt();
+        }, 50);
+      }
     };
     socket.onclose = () => {
-      setConnected(false); [1]
-      writeLine(""); [2]
-      writeLine("[PTY disconnected]"); [1]
-      newPrompt(); [2]
+      setConnected(false);
+      writeLine("");
+      writeLine("[PTY disconnected]");
+      setTimeout(() => {
+        newPrompt();
+      }, 50);
     };
-    setWs(socket); [1]
+    setWs(socket);
   }
 
-  // Terminal-based login flow (only hits backend after explicit login) [1]
+  // Terminal-based login flow
   async function doLoginFlow() {
-    const u = await readLine("username: "); [2]
-    const p = await readPassword("password: "); [2]
+    const u = await readLine("username: ");
+    const p = await readPassword("password: ");
     try {
-      await login(u, p); [1]
-      const info = await whoami(); [1]
-      setUser(info); [1]
-      writeLine(""); [2]
-      writeLine("[login ok]"); [1]
-      if (!ws) attachPTY(); // optional auto-attach [1]
+      await login(u, p);
+      const info = await whoami();
+      setUser(info);
+      writeLine("");
+      writeLine("[login ok]");
+      
+      if (!ws) {
+        setTimeout(() => {
+          attachPTY();
+        }, 100);
+      }
     } catch {
-      writeLine(""); [2]
-      writeLine("[login failed]"); [1]
-    } finally {
-      newPrompt(); [2]
+      writeLine("");
+      writeLine("[login failed]");
+      setTimeout(() => {
+        newPrompt();
+      }, 100);
     }
   }
 
   async function doLogoutFlow() {
-    await logout(); [1]
-    setUser(null); [1]
+    await logout();
+    setUser(null);
     if (ws) {
-      ws.close(); [1]
-      setWs(null); [1]
+      ws.close();
+      setWs(null);
     }
-    writeLine(""); [2]
-    writeLine("[logged out]"); [1]
-    newPrompt(); [2]
+    writeLine("");
+    writeLine("[logged out]");
   }
 
-  // Read a line with echo via the line editor (dispose listener to prevent stuck input) [3]
-  function readLine(promptText?: string): Promise<string> { [3]
-    readingLineRef.current = true; [3]
+  // Read a line with echo via the line editor
+  function readLine(promptText?: string): Promise<string> {
+    readingLineRef.current = true;
     if (promptText) {
-      write(promptText); // inline prompt (no newline) [2]
+      write(promptText);
     }
-    bufferRef.current = ""; [1]
-    redrawLine(); [2]
+    bufferRef.current = "";
+    redrawLine();
 
     return new Promise((resolve) => {
-      const disp = termRef.current?.onData((data: string) => { [3]
+      const disp = termRef.current?.onData((data: string) => {
         if (data === "\r") {
-          write("\r\n"); [2]
-          disp?.dispose(); [3]
-          readDisposableRef.current = null; [3]
-          readingLineRef.current = false; [3]
-          const value = bufferRef.current; [1]
-          bufferRef.current = ""; [1]
-          resolve(value); [3]
-          return; [3]
+          write("\r\n");
+          disp?.dispose();
+          readDisposableRef.current = null;
+          readingLineRef.current = false;
+          const value = bufferRef.current;
+          bufferRef.current = "";
+          resolve(value);
+          return;
         }
         if (data === "\u007F") {
           if (bufferRef.current.length > 0) {
-            bufferRef.current = bufferRef.current.slice(0, -1); [1]
-            redrawLine(); [2]
+            bufferRef.current = bufferRef.current.slice(0, -1);
+            redrawLine();
           }
-          return; [3]
+          return;
         }
         if (data >= " " && data !== "\x7F") {
-          bufferRef.current += data; [1]
-          redrawLine(); [2]
+          bufferRef.current += data;
+          redrawLine();
         }
       });
-      readDisposableRef.current = disp || null; [3]
+      readDisposableRef.current = disp || null;
     });
   }
 
-  // Read password (masked) [3]
-  function readPassword(promptText?: string): Promise<string> { [3]
-    readingLineRef.current = true; [3]
+  // Read password (masked)
+  function readPassword(promptText?: string): Promise<string> {
+    readingLineRef.current = true;
     if (promptText) {
-      write(promptText); [2]
+      write(promptText);
     }
-    bufferRef.current = ""; [1]
-    redrawLine(); [2]
+    bufferRef.current = "";
+    redrawLine();
     return new Promise((resolve) => {
-      const disp = termRef.current?.onData((data: string) => { [3]
+      const disp = termRef.current?.onData((data: string) => {
         if (data === "\r") {
-          write("\r\n"); [2]
-          disp?.dispose(); [3]
-          readDisposableRef.current = null; [3]
-          readingLineRef.current = false; [3]
-          const value = bufferRef.current; [1]
-          bufferRef.current = ""; [1]
-          resolve(value); [3]
-          return; [3]
+          write("\r\n");
+          disp?.dispose();
+          readDisposableRef.current = null;
+          readingLineRef.current = false;
+          const value = bufferRef.current;
+          bufferRef.current = "";
+          resolve(value);
+          return;
         }
         if (data === "\u007F") {
           if (bufferRef.current.length > 0) {
-            bufferRef.current = bufferRef.current.slice(0, -1); [1]
-            write("\r\x1b[K"); [2]
-            write(promptRef.current + "*".repeat(bufferRef.current.length)); [2]
+            bufferRef.current = bufferRef.current.slice(0, -1);
+            write("\r\x1b[K");
+            write(promptRef.current + "*".repeat(bufferRef.current.length));
           }
-          return; [3]
+          return;
         }
         if (data >= " " && data !== "\x7F") {
-          bufferRef.current += data; [1]
-          write("\r\x1b[K"); [2]
-          write(promptRef.current + "*".repeat(bufferRef.current.length)); [2]
+          bufferRef.current += data;
+          write("\r\x1b[K");
+          write(promptRef.current + "*".repeat(bufferRef.current.length));
         }
       });
-      readDisposableRef.current = disp || null; [3]
+      readDisposableRef.current = disp || null;
     });
   }
 
-  // Main keystroke handler using the line editor (single echo path) [3]
-  async function handleData(d: string) { [3]
-    if (readingLineRef.current) return; // prompts capture input [3]
+  // Main keystroke handler - only active after startup is complete
+  async function handleData(d: string) {
+    if (isPageLoading || !isStartupComplete || readingLineRef.current) return;
 
     if (d === "\r") {
-      write("\r\n"); [2]
-      const input = bufferRef.current.trim(); // normalized tokenization [2]
-      bufferRef.current = ""; [1]
-      await dispatch(input); [1]
-      return; [1]
+      write("\r\n");
+      const input = bufferRef.current.trim();
+      bufferRef.current = "";
+      await dispatch(input);
+      return;
     }
     if (d === "\u007F") {
       if (bufferRef.current.length > 0) {
-        bufferRef.current = bufferRef.current.slice(0, -1); [1]
+        bufferRef.current = bufferRef.current.slice(0, -1);
       }
-      redrawLine(); [2]
-      return; [1]
+      redrawLine();
+      return;
     }
     if (d >= " " && d !== "\x7F") {
-      bufferRef.current += d; [1]
-      redrawLine(); [2]
+      bufferRef.current += d;
+      redrawLine();
     }
   }
 
-  // Dispatcher: client-first; server only after login/attach [1]
-  async function dispatch(input: string) { [1]
+  // Dispatcher: client-first; server only after login/attach
+  async function dispatch(input: string) {
     if (input === "") {
-      newPrompt(); [2]
-      return; [1]
+      newPrompt();
+      return;
     }
 
     if (input === "login") {
-      await doLoginFlow(); [1]
-      return; [1]
+      await doLoginFlow();
+      return;
     }
     if (input === "logout") {
-      await doLogoutFlow(); [1]
-      return; [1]
+      await doLogoutFlow();
+      return;
     }
 
-    // Always try client commands first (no WS/login required) [1]
-    const res = await handleClientCommand(input); [1]
+    // Always try client commands first
+    const res = await handleClientCommand(input);
     if (res.handled) {
-      if (res.output) writeLine(res.output); [1]
+      if (res.output) writeLine(res.output);
       if (res.attach) {
         if (user) {
-          if (!ws || !connected) attachPTY(); [1]
+          if (!ws || !connected) attachPTY();
         } else {
-          writeLine("Login first, then run 'attach'."); [1]
+          writeLine("Login first, then run 'attach'.");
         }
       }
-      newPrompt(); [2]
-      return; [1]
+      newPrompt();
+      return;
     }
 
-    // Forward to shell only when PTY is connected [1]
+    // Forward to shell only when PTY is connected
     if (ws && connected) {
-      ws.send(input + "\n"); [1]
-      newPrompt(); [2]
-      return; [1]
+      ws.send(input + "\n");
+      return;
     }
 
-    // Helpful hint when not connected; client commands still work [1]
-    writeLine("Unknown or unavailable. Try 'help'. For shell commands: 'login' then 'attach'."); [1]
-    newPrompt(); [2]
+    writeLine("Unknown or unavailable. Try 'help'. For shell commands: 'login' then 'attach'.");
+    newPrompt();
   }
 
-  // Full-screen container; TerminalView must safe-fit in parent [2]
   return (
     <div className="h-screen w-screen flex flex-col" style={{ backgroundColor: "#0d0208", color: "#00ff41" }}>
       <main className="flex-1 min-h-0 min-w-0">
         <TerminalView onData={handleData} ref={termRef} />
       </main>
     </div>
-  ); [2]
+  );
 }
