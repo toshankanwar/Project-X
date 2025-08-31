@@ -21,7 +21,7 @@ export default forwardRef<API, { onData: (d: string) => void }>(function Termina
   const inited = useRef(false);
 
   useEffect(() => {
-    if (inited.current) return; // prevent StrictMode double init
+    if (inited.current) return;
     inited.current = true;
 
     const el = containerRef.current;
@@ -35,35 +35,33 @@ export default forwardRef<API, { onData: (d: string) => void }>(function Termina
         background: "#0d0208",
         foreground: "#00ff41",
         cursor: "#00ff41",
-        cursorAccent: "#00ff41", // Add cursor accent
+        cursorAccent: "#00ff41",
       },
       fontFamily:
         "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-      fontSize: 18,              // Increased from 14 to 18
-      lineHeight: 1.2,           // Added line height for better spacing
-      letterSpacing: 0.5,        // Added letter spacing for better readability
-      fontWeight: 'normal',      // Ensure normal weight (not too thin)
-      // Add these for better cursor behavior
-      cursorStyle: 'block',
-      cursorWidth: 2,            // Increased cursor width from 1 to 2
-      // Prevent autowrap issues that can cause cursor problems
+      fontSize: 18,
+      lineHeight: 1.2,
+      letterSpacing: 0.5,
+      fontWeight: "normal",
+      cursorStyle: "block",
+      cursorWidth: 2,
       cols: 80,
       rows: 24,
     });
-    
+
     const fit = new FitAddon();
     term.loadAddon(fit);
-    term.open(el);
-    termRef.current = term;
     fitRef.current = fit;
 
-    // Better fit timing - wait for layout AND proper initialization
+    term.open(el);
+    termRef.current = term;
+
+    // Safe fit function - removed private _core property access
     const safeFit = () => {
       try {
         const rect = el.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0 && term._core?.buffer) {
+        if (rect.width > 0 && rect.height > 0) {
           fit.fit();
-          // Force cursor visibility after fit
           term.focus();
         }
       } catch (e) {
@@ -72,20 +70,22 @@ export default forwardRef<API, { onData: (d: string) => void }>(function Termina
     };
 
     // Multiple timing strategies for fit
-    setTimeout(safeFit, 0);          // Immediate
-    setTimeout(safeFit, 100);        // After render
+    setTimeout(safeFit, 0);
+    setTimeout(safeFit, 100);
     const raf = requestAnimationFrame(safeFit);
 
     // Wire data with proper disposal handling
     const disp = term.onData(onData);
 
+    // Fixed resize handling with proper typing
+    let resizeTimer: NodeJS.Timeout | null = null;
     const onResize = () => {
-      // Debounce resize to prevent fit spam
-      clearTimeout(onResize._timeout);
-      onResize._timeout = setTimeout(safeFit, 100);
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        safeFit();
+      }, 200);
     };
-    onResize._timeout = null;
-    
+
     window.addEventListener("resize", onResize);
 
     // Focus the terminal initially to ensure cursor is visible
@@ -94,7 +94,7 @@ export default forwardRef<API, { onData: (d: string) => void }>(function Termina
     }, 0);
 
     return () => {
-      clearTimeout(onResize._timeout);
+      if (resizeTimer) clearTimeout(resizeTimer);
       window.removeEventListener("resize", onResize);
       cancelAnimationFrame(raf);
       try {
@@ -118,8 +118,10 @@ export default forwardRef<API, { onData: (d: string) => void }>(function Termina
     },
     focus: () => {
       termRef.current?.focus();
-      // Also refresh cursor position
-      termRef.current?.refresh(termRef.current.buffer.active.cursorY, termRef.current.buffer.active.cursorY);
+      // Also refresh cursor position - with null check
+      if (termRef.current) {
+        termRef.current.refresh(termRef.current.buffer.active.cursorY, termRef.current.buffer.active.cursorY);
+      }
     },
     fit: () => {
       try {
@@ -132,7 +134,9 @@ export default forwardRef<API, { onData: (d: string) => void }>(function Termina
           // Ensure cursor stays visible after fit
           setTimeout(() => {
             termRef.current?.focus();
-            termRef.current?.refresh(termRef.current.buffer.active.cursorY, termRef.current.buffer.active.cursorY);
+            if (termRef.current) {
+              termRef.current.refresh(termRef.current.buffer.active.cursorY, termRef.current.buffer.active.cursorY);
+            }
           }, 0);
         }
       } catch (e) {

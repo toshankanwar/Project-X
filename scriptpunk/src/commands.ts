@@ -68,7 +68,7 @@ const hackingSteps = [
 ];
 
 // Utility Functions
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 
 const createProgressBar = (percentage: number, width: number = 30) => {
   const filled = Math.floor((percentage / 100) * width);
@@ -115,7 +115,7 @@ export async function handleClientCommand(input: string): Promise<CommandResult>
     switch (cmd) {
       case "help":
         return {
-          handled: true,
+          handled: true,                            
           output: `${scriptPunkBanner}
 
 Available Commands:
