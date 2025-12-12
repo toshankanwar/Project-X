@@ -6,7 +6,7 @@ A cutting-edge terminal emulator built with **React + TypeScript** frontend and 
 
 ## 🌟 Live Demo
 
-**🔗 [Try ScriptPunk Terminal Live](https://terminal.toshankanwar.website/)**
+**🔗 [Try ScriptPunk Terminal Live](https://terminal.toshankanwar.in/)**
 
 ## ✨ Features
 
@@ -95,7 +95,7 @@ encode64 "secret" # Base64 encoding
 
 ## 🌟 Live Demo
 
-**🔗 [Try ScriptPunk Terminal Live](https://terminal.toshankanwar.website/)**
+**🔗 [Try ScriptPunk Terminal Live](https://terminal.toshankanwar.in/)**
 
 Default login credentials:
 - **Username:** `hackroot`
@@ -109,7 +109,7 @@ MIT License - feel free to use, modify, and distribute!
 
 Created by **Toshan Kanwar** - Data Science & AI student at IIIT Naya Raipur
 
-- 🌐 **Website:** [toshankanwar.website](https://toshankanwar.website)
+- 🌐 **Website:** [toshankanwar.in](https://toshankanwar.in)
 - 💼 **LinkedIn:** [Toshan Kanwar](https://linkedin.com/in/toshan-kanwar-4683a1349/)
 - 🐙 **GitHub:** [@toshankanwar](https://github.com/toshankanwar)
 - 📺 **YouTube:** [@ToshanKanwarOfficials](https://youtube.com/@ToshanKanwarOfficials)

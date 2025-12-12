@@ -252,14 +252,14 @@ Type 'projects' to see my portfolio or 'social' for social media links.
 ====================
 
 1. PERSONAL WEBSITE
-   URL: https://toshankanwar.website/
+   URL: https://toshankanwar.in/
    Full-stack personal portfolio showcasing skills and projects
    Tech: React, Vite, Javascript
    Features: Responsive design, contact form
 
 2. BAKERY MANAGEMENT SYSTEM
-   Website: https://bakery.toshankanwar.website/
-   Admin Panel: https://admin.bakery.toshankanwar.website/login
+   Website: https://bakery.toshankanwar.in/
+   Admin Panel: https://admin.bakery.toshankanwar.in/login
    Complete bakery management with inventory, orders, and billing
    Tech: Next.js, Firebase, Nodejs, Chart.js, Python, Tailwind css
    Features: Real-time inventory, order tracking, sales analytics
@@ -271,26 +271,26 @@ Type 'projects' to see my portfolio or 'social' for social media links.
    Features: Offline mode, push notifications
 
 4. POEMS PLATFORM
-   Website: https://poems.toshankanwar.website/
-   Admin: https://admin.poems.toshankanwar.website/
+   Website: https://poems.toshankanwar.in/
+   Admin: https://admin.poems.toshankanwar.in/
    Poetry sharing and management platform with social features
    Tech: Next.js, Firebase, Tailwind css
    Features: User authentication, poem sharing, like/comment system
 
 5. HEART FAILURE PREDICTION
-   URL: https://heart-failure.toshankanwar.website/
+   URL: https://heart.toshankanwar.in/
    ML-powered heart disease prediction system with 95% accuracy
    Tech: Python, FastAPI, TensorFlow, React, scikit-learn
    Features: ML model, data visualization, medical predictions
 
 6. TEXT ANALYZER
-   URL: https://text-analyzer.toshankanwar.website/
+   URL: https://text.toshankanwar.in/
    Advanced text processing and sentiment analysis tool
    Tech: Reactjs, Tailwind css
    Features: Sentiment analysis, keyword extraction, text metrics
 
 7. SCRIPTPUNK TERMINAL
-   URL: https://terminal.toshankanwar.website/
+   URL: https://terminal.toshankanwar.in/
    Web-based terminal emulator with hacking theme (current project)
    Tech: React, TypeScript, xterm.js, WebSockets, Go backend
    Features: 50+ commands, real APIs, Bollywood themes, animations
@@ -344,8 +344,8 @@ Previous Channel: @Toshan2005 (Compromised)
   - Lessons learned in cybersecurity
 
 CONTACT INFORMATION:
-Email: contact@toshankanwar.website
-Website: https://toshankanwar.website/
+Email: contact@toshankanwar.in
+Website: https://toshankanwar.in/
 Location: IIIT Naya Raipur, Chhattisgarh, India
 
 CURRENT STATUS:
